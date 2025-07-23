@@ -44,6 +44,7 @@ public class KafkaTopicServiceImpl implements KafkaTopicService {
 
 	@Override
 	public ResponseResult createTopic(KafkaTopicDTO kafkaTopicDTO) {
+		LO
 		// Step 1: Run validation and preprocessing
 		var validationResult = BasicValidationUtill.createTopicValidations(kafkaTopicDTO);
 		// Only runs if validation failed
@@ -89,24 +90,6 @@ public class KafkaTopicServiceImpl implements KafkaTopicService {
 		}
 	}
 
-//	@Override
-//	public ResponseResult deleteTopic(String topicName) {
-//		ResponseResult validationResult = BasicValidationUtill.validTopicDeletion(adminClient, topicName);
-//
-//		if (!"200".equals(validationResult.getCode())) {
-//			return validationResult;
-//		}
-//
-//		try {
-//			DeleteTopicsResult result = adminClient.deleteTopics(Collections.singletonList(topicName));
-//			result.all().get();
-//
-//			return ResponseResult.builder().code("200").message("Topic deleted successfully").data(topicName).build();
-//		} catch (Exception e) {
-//			return ResponseResult.builder().code("500").message("Failed to delete topic: " + e.getMessage())
-//					.data(new ArrayList<>()).build();
-//		}
-//	}
 	@Override
 	public ResponseResult deleteTopic(String topicName) {
 

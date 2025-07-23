@@ -42,23 +42,3 @@ public class BasicValidationUtill {
 	}
 
 }
-//		try {
-//			if (topicName == null || topicName.trim().isEmpty()) {
-//				return ResponseResult.builder().code("400").message("Topic name must not be empty")
-//						.data(Collections.emptyList()).build();
-//			}
-//
-//			Set<String> existingTopics = adminClient.listTopics().names().get();
-//
-//			if (!existingTopics.contains(topicName)) {
-//				return ResponseResult.builder().code("404").message("Topic '" + topicName + "' does not exist")
-//						.data(Collections.emptyList()).build();
-//			}
-//
-//			return ResponseResult.builder().code("200").message("Validation Success").data(null).build();
-//
-//		} catch (Exception e) {
-//			return ResponseResult.builder().code("500").message("Error validating topic existence: " + e.getMessage())
-//					.data(null).build();
-//		}
-//	}
