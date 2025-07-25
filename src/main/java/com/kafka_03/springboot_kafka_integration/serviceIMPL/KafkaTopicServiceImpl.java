@@ -21,6 +21,7 @@ import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.config.ConfigResource;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -121,44 +122,96 @@ public class KafkaTopicServiceImpl implements KafkaTopicService {
 		}
 	}
 
+//	@Override
+//	public ResponseResult getTopicDetails(String topicName) {
+//		try {
+//			// Describe topic
+//			DescribeTopicsResult describeTopicsResult = adminClient
+//					.describeTopics(Collections.singletonList(topicName));
+//			TopicDescription topicDescription = describeTopicsResult.values().get(topicName).get();
+//
+//			// Get Configs
+//			ConfigResource configResource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+//			DescribeConfigsResult describeConfigsResult = adminClient
+//					.describeConfigs(Collections.singleton(configResource));
+//			Config config = describeConfigsResult.all().get().get(configResource);
+//
+//			// Extract config entries into a Map
+//			Map<String, String> configMap = new HashMap<>();
+//			for (ConfigEntry entry : config.entries()) {
+//				configMap.put(entry.name(), entry.value());
+//			}
+//
+//			// Prepare data to return
+//			Map<String, Object> topicData = new HashMap<>();
+//			topicData.put("topicName", topicDescription.name());
+//			topicData.put("partitions", topicDescription.partitions().size());
+//			topicData.put("replicationFactor", topicDescription.partitions().get(0).replicas().size());
+//			topicData.put("config", configMap);
+//
+//			return ResponseResult.builder().code("200").message("Topic details fetched successfully").data(topicData)
+//					.build();
+//
+//		} catch (ExecutionException e) {
+//			return ResponseResult.builder().code("500")
+//					.message("Failed to fetch topic details: " + e.getCause().getMessage()).data(null).build();
+//		} catch (Exception e) {
+//			return ResponseResult.builder().code("500").message("Internal server error: " + e.getMessage()).data(null)
+//					.build();
+//		}
+//	}
+	
 	@Override
 	public ResponseResult getTopicDetails(String topicName) {
-		try {
-			// Describe topic
-			DescribeTopicsResult describeTopicsResult = adminClient
-					.describeTopics(Collections.singletonList(topicName));
-			TopicDescription topicDescription = describeTopicsResult.values().get(topicName).get();
+	    try {
+	        // Describe topic
+	        DescribeTopicsResult describeTopicsResult = adminClient.describeTopics(Collections.singletonList(topicName));
+	        TopicDescription topicDescription = describeTopicsResult.values().get(topicName).get();
 
-			// Get Configs
-			ConfigResource configResource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
-			DescribeConfigsResult describeConfigsResult = adminClient
-					.describeConfigs(Collections.singleton(configResource));
-			Config config = describeConfigsResult.all().get().get(configResource);
+	        // Get Configs
+	        ConfigResource configResource = new ConfigResource(ConfigResource.Type.TOPIC, topicName);
+	        DescribeConfigsResult describeConfigsResult = adminClient.describeConfigs(Collections.singleton(configResource));
+	        Config config = describeConfigsResult.all().get().get(configResource);
 
-			// Extract config entries into a Map
-			Map<String, String> configMap = new HashMap<>();
-			for (ConfigEntry entry : config.entries()) {
-				configMap.put(entry.name(), entry.value());
-			}
+	        // Extract config entries into a Map
+	        Map<String, String> configMap = new HashMap<>();
+	        for (ConfigEntry entry : config.entries()) {
+	            configMap.put(entry.name(), entry.value());
+	        }
 
-			// Prepare data to return
-			Map<String, Object> topicData = new HashMap<>();
-			topicData.put("topicName", topicDescription.name());
-			topicData.put("partitions", topicDescription.partitions().size());
-			topicData.put("replicationFactor", topicDescription.partitions().get(0).replicas().size());
-			topicData.put("config", configMap);
+	        // Prepare data to return
+	        Map<String, Object> topicData = new HashMap<>();
+	        topicData.put("topicName", topicDescription.name());
+	        topicData.put("partitions", topicDescription.partitions().size());
+	        topicData.put("replicationFactor", topicDescription.partitions().get(0).replicas().size());
+	        topicData.put("config", configMap);
 
-			return ResponseResult.builder().code("200").message("Topic details fetched successfully").data(topicData)
-					.build();
+	        return ResponseResult.builder()
+	                .code(SuccessResponseCode.TOPIC_DETAILS_SUCCESS.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(SuccessResponseCode.TOPIC_DETAILS_SUCCESS.getCode()))
+	                .data(topicData)
+	                .build();
 
-		} catch (ExecutionException e) {
-			return ResponseResult.builder().code("500")
-					.message("Failed to fetch topic details: " + e.getCause().getMessage()).data(null).build();
-		} catch (Exception e) {
-			return ResponseResult.builder().code("500").message("Internal server error: " + e.getMessage()).data(null)
-					.build();
-		}
+	    } catch (Exception e) {
+	        Throwable cause = (e instanceof ExecutionException && e.getCause() != null) ? e.getCause() : e;
+
+	        if (cause instanceof UnknownTopicOrPartitionException) {
+	            return ResponseResult.builder()
+	                    .code(ErrorResponseCode.TOPIC_DOES_NOT_EXIST.getCode())
+	                    .message(ResponseResultMessageUtill.getMessage(ErrorResponseCode.TOPIC_DOES_NOT_EXIST.getCode()))
+	                    .data(null)
+	                    .build();
+	        }
+
+	        return ResponseResult.builder()
+	                .code(ErrorResponseCode.TOPIC_DETAILS_FAILED.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(ErrorResponseCode.TOPIC_DETAILS_FAILED.getCode()) 
+	                         + ": " + cause.getMessage())
+	                .data(null)
+	                .build();
+	    }
 	}
+
 
 	@Override
 	public ResponseResult getPartitionDetails(String topicName) {
@@ -183,54 +236,118 @@ public class KafkaTopicServiceImpl implements KafkaTopicService {
 			responseMap.put("partitionCount", partitionList.size());
 			responseMap.put("partitions", partitionList);
 
-			return ResponseResult.builder().code("200").message("Partition details fetched").data(responseMap).build();
+//			return ResponseResult.builder().code("200").message("Partition details fetched").data(responseMap).build();
+			return ResponseResult.builder().code(SuccessResponseCode.PARTION_DETAILS_SUCCESS.getCode())
+					.message(
+							ResponseResultMessageUtill.getMessage(SuccessResponseCode.PARTION_DETAILS_SUCCESS.getCode()))
+					.data(responseMap).build();
 
 		} catch (Exception e) {
-			return ResponseResult.builder().code("500").message("Error fetching partition details: " + e.getMessage())
-					.data(null).build();
+//			return ResponseResult.builder().code("500").message("Error fetching partition details: " + e.getMessage())
+//					.data(null).build();
+			return ResponseResult.builder().code(ErrorResponseCode.PARTION_DETAILS_FAILED.getCode())
+					.message(
+							 ResponseResultMessageUtill.getMessage(ErrorResponseCode.PARTION_DETAILS_FAILED.getCode())
+							).data(new ArrayList<>()).build();
 		}
 	}
 
+//	@Override
+//	public ResponseResult getBrokerDetails() {
+//		try {
+//			Collection<Node> nodes = adminClient.describeCluster().nodes().get();
+//			List<Map<String, Object>> brokerList = new ArrayList<>();
+//
+//			for (Node node : nodes) {
+//				Map<String, Object> brokerInfo = new HashMap<>();
+//				brokerInfo.put("id", node.id());
+//				brokerInfo.put("host", node.host());
+//				brokerInfo.put("port", node.port());
+//				brokerList.add(brokerInfo);
+//			}
+//
+//			return ResponseResult.builder().code("200").message("Broker details fetched successfully").data(brokerList)
+//					.build();
+//
+//		} catch (Exception e) {
+//			return ResponseResult.builder().code("500").message("Error fetching broker details: " + e.getMessage())
+//					.data(null).build();
+//		}
+//	}
 	@Override
 	public ResponseResult getBrokerDetails() {
-		try {
-			Collection<Node> nodes = adminClient.describeCluster().nodes().get();
-			List<Map<String, Object>> brokerList = new ArrayList<>();
+	    try {
+	        Collection<Node> nodes = adminClient.describeCluster().nodes().get();
+	        List<Map<String, Object>> brokerList = new ArrayList<>();
 
-			for (Node node : nodes) {
-				Map<String, Object> brokerInfo = new HashMap<>();
-				brokerInfo.put("id", node.id());
-				brokerInfo.put("host", node.host());
-				brokerInfo.put("port", node.port());
-				brokerList.add(brokerInfo);
-			}
+	        for (Node node : nodes) {
+	            Map<String, Object> brokerInfo = new HashMap<>();
+	            brokerInfo.put("id", node.id());
+	            brokerInfo.put("host", node.host());
+	            brokerInfo.put("port", node.port());
+	            brokerList.add(brokerInfo);
+	        }
 
-			return ResponseResult.builder().code("200").message("Broker details fetched successfully").data(brokerList)
-					.build();
+	        return ResponseResult.builder()
+	                .code(SuccessResponseCode.BROKER_DETAILS_SUCCESS.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(SuccessResponseCode.BROKER_DETAILS_SUCCESS.getCode()))
+	                .data(brokerList)
+	                .build();
 
-		} catch (Exception e) {
-			return ResponseResult.builder().code("500").message("Error fetching broker details: " + e.getMessage())
-					.data(null).build();
-		}
+	    } catch (Exception e) {
+	        return ResponseResult.builder()
+	                .code(ErrorResponseCode.BROKER_DETAILS_FAILED.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(ErrorResponseCode.BROKER_DETAILS_FAILED.getCode()) 
+	                         + ": " + e.getMessage())
+	                .data(new ArrayList<>())
+	                .build();
+	    }
 	}
 
+
+//	@Override
+//	public ResponseResult increasePartitions(PartitionUpdateDTO dto) {
+//		try {
+//			Map<String, NewPartitions> newPartitionMap = new HashMap<>();
+//			newPartitionMap.put(dto.getTopicName(), NewPartitions.increaseTo(dto.getNewPartitionCount()));
+//
+//			adminClient.createPartitions(newPartitionMap).all().get();
+//
+//			return ResponseResult.builder().code("200").message("Partitions increased successfully").data(dto).build();
+//
+//		} catch (ExecutionException e) {
+//			return ResponseResult.builder().code("500")
+//					.message("Failed to increase partitions: " + e.getCause().getMessage()).data(null).build();
+//		} catch (Exception e) {
+//			return ResponseResult.builder().code("500").message("Internal server error: " + e.getMessage()).data(null)
+//					.build();
+//		}
+//	}
 	@Override
 	public ResponseResult increasePartitions(PartitionUpdateDTO dto) {
-		try {
-			Map<String, NewPartitions> newPartitionMap = new HashMap<>();
-			newPartitionMap.put(dto.getTopicName(), NewPartitions.increaseTo(dto.getNewPartitionCount()));
+	    try {
+	        Map<String, NewPartitions> newPartitionMap = new HashMap<>();
+	        newPartitionMap.put(dto.getTopicName(), NewPartitions.increaseTo(dto.getNewPartitionCount()));
 
-			adminClient.createPartitions(newPartitionMap).all().get();
+	        adminClient.createPartitions(newPartitionMap).all().get();
 
-			return ResponseResult.builder().code("200").message("Partitions increased successfully").data(dto).build();
+	        return ResponseResult.builder()
+	                .code(SuccessResponseCode.PARTITION_INCREASE_SUCCESS.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(SuccessResponseCode.PARTITION_INCREASE_SUCCESS.getCode()))
+	                .data(dto)
+	                .build();
 
-		} catch (ExecutionException e) {
-			return ResponseResult.builder().code("500")
-					.message("Failed to increase partitions: " + e.getCause().getMessage()).data(null).build();
-		} catch (Exception e) {
-			return ResponseResult.builder().code("500").message("Internal server error: " + e.getMessage()).data(null)
-					.build();
-		}
+	    } catch (Exception e) {
+	        Throwable cause = (e instanceof ExecutionException && e.getCause() != null) ? e.getCause() : e;
+
+	        return ResponseResult.builder()
+	                .code(ErrorResponseCode.PARTITION_INCREASE_FAILED.getCode())
+	                .message(ResponseResultMessageUtill.getMessage(ErrorResponseCode.PARTITION_INCREASE_FAILED.getCode())
+	                        + ": " + cause.getMessage())
+	                .data(null)
+	                .build();
+	    }
 	}
+
 
 }
